@@ -16,6 +16,7 @@ try {
 }
 header('Content-Type: application/json; charset=utf-8');
 header('X-Content-Type-Options: nosniff');
+
 function json_input(): array {
     $data=json_decode(file_get_contents('php://input'),true);
     return is_array($data)?$data:$_POST;
@@ -30,4 +31,9 @@ function csrf_token(): string {
 }
 function verify_csrf(?string $token): void {
     if(!$token || empty($_SESSION['csrf']) || !hash_equals($_SESSION['csrf'],$token)) json_response(['success'=>false,'message'=>'Invalid security token.'],419);
+}
+function require_admin(): void {
+    if(empty($_SESSION['user_id']) || ($_SESSION['user_role']??'')!=='admin') {
+        json_response(['success'=>false,'message'=>'Administrator access required.'],403);
+    }
 }
