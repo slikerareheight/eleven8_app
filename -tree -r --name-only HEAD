@@ -1,0 +1,23 @@
+[33m56e0b3b[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m)[m Add Eleven8 website pages
+ about.html                                  |  23 [32m+++++++++[m
+ booking.html                                |  30 [32m++++++++++++[m
+ contact.html                                |  23 [32m+++++++++[m
+ css/styles.css                              |  71 [32m++++++++++++++++++++++++++++[m
+ images/9898db073478088185ea16a9ff456688.jpg | Bin [31m0[m -> [32m85064[m bytes
+ images/COMMERCIAL.jpg                       | Bin [31m0[m -> [32m160565[m bytes
+ images/PORTRAIT.jpg                         | Bin [31m0[m -> [32m59475[m bytes
+ images/SLIDER 2.png                         | Bin [31m0[m -> [32m100665[m bytes
+ images/WEDDINGS.jpg                         | Bin [31m0[m -> [32m72149[m bytes
+ images/eleven 8 header.png                  | Bin [31m0[m -> [32m102312[m bytes
+ images/eleven 8 logo.png                    | Bin [31m0[m -> [32m57449[m bytes
+ images/logo.png                             | Bin [31m0[m -> [32m75712[m bytes
+ images/slider 1.png                         | Bin [31m0[m -> [32m101163[m bytes
+ index.html                                  |  41 [32m++++++++++++++++[m
+ js/main.js                                  |  31 [32m++++++++++++[m
+ packages.html                               |  26 [32m++++++++++[m
+ portfolio.html                              |  30 [32m++++++++++++[m
+ services.html                               |  30 [32m++++++++++++[m
+ 18 files changed, 305 insertions(+)
+[33mbe7d8d3[m first commit
+ README.md | 26 [32m++++++++++++++++++++++++++[m
+ 1 file changed, 26 insertions(+)
