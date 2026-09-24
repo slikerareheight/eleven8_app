@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__.'/../api/bootstrap.php';
 require_admin();
+header('Content-Type: text/html; charset=utf-8');
 $stmt=$pdo->query('SELECT id,name,email,phone,service,booking_date,package,amount,status,payment_reference,paid_at,created_at FROM bookings ORDER BY created_at DESC');
 $bookings=$stmt->fetchAll();
 $total=(float)$pdo->query("SELECT COALESCE(SUM(amount),0) FROM bookings WHERE status='paid'")->fetchColumn();
