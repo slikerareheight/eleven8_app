@@ -34,9 +34,9 @@ $users=$pdo->query('SELECT id,first_name,last_name,email,phone,role,is_active,cr
 </tbody></table></div></div>
 
 <div class="eyebrow">BOOKINGS & PAYMENT VERIFICATION</div><h2>Booking Records</h2>
-<p class="muted">Enter the Paystack transaction reference supplied by the customer, then verify it against the booking amount. The booking is marked <strong>PAID</strong> only when Paystack confirms a successful NGN transaction for the exact amount.</p>
+<p class="muted">Record payments received by bank transfer, cash, POS or another agreed payment method. The administrator verifies the payment manually after confirming the payment has been received.</p>
 <div style="overflow:auto"><table style="width:100%;border-collapse:collapse;min-width:1450px">
-<thead><tr><th>ID</th><th>Customer</th><th>Service</th><th>Date</th><th>Package</th><th>Amount</th><th>Status</th><th>Paystack Reference</th><th>Paid At</th><th>Action</th></tr></thead><tbody>
+<thead><tr><th>ID</th><th>Customer</th><th>Service</th><th>Date</th><th>Package</th><th>Amount</th><th>Status</th><th>Payment Method</th><th>Reference / Note</th><th>Paid At</th><th>Action</th></tr></thead><tbody>
 <?php if(!$bookings): ?><tr><td colspan="10" style="padding:25px;text-align:center">No bookings have been created yet.</td></tr>
 <?php else: foreach($bookings as $b): ?>
 <tr id="booking-row-<?=htmlspecialchars((string)$b['id'])?>">
@@ -47,9 +47,10 @@ $users=$pdo->query('SELECT id,first_name,last_name,email,phone,role,is_active,cr
 <td><?=htmlspecialchars($b['package'])?></td>
 <td>₦<?=number_format((float)$b['amount'],2)?></td>
 <td class="payment-status"><?=htmlspecialchars(strtoupper($b['status']))?><?php if(!empty($b['payment_channel'])): ?><br><small><?=htmlspecialchars($b['payment_channel'])?></small><?php endif; ?></td>
-<td><input class="admin-payment-ref" id="ref-<?=htmlspecialchars((string)$b['id'])?>" type="text" value="<?=htmlspecialchars((string)($b['payment_reference']??''))?>" placeholder="e.g. 1234567890"></td>
+<td class="payment-method"><?=htmlspecialchars((string)($b['payment_channel']??''))?></td>
+<td><input class="admin-payment-ref" id="ref-<?=htmlspecialchars((string)$b['id'])?>" type="text" value="<?=htmlspecialchars((string)($b['payment_reference']??''))?>" placeholder="Reference (optional)"><input class="admin-payment-note" id="note-<?=htmlspecialchars((string)$b['id'])?>" type="text" placeholder="Note (optional)" style="margin-top:6px"></td>
 <td class="paid-at"><?=htmlspecialchars((string)($b['paid_at']??''))?></td>
-<td><?php if($b['status']==='paid'): ?><span class="notice" style="display:inline-block;padding:8px 12px">Verified</span><?php else: ?><button type="button" class="btn btn-gold verify-payment" data-booking-id="<?=htmlspecialchars((string)$b['id'])?>">Verify Payment</button><div class="form-status verify-status" id="status-<?=htmlspecialchars((string)$b['id'])?>" aria-live="polite"></div><?php endif; ?></td>
+<td><?php if($b['status']==='paid'): ?><span class="notice" style="display:inline-block;padding:8px 12px">Verified</span><?php else: ?><select id="method-<?=htmlspecialchars((string)$b['id'])?>" style="min-width:150px;margin-bottom:6px"><option value="">Payment method</option><option>Bank Transfer</option><option>Cash</option><option>POS</option><option>Other</option></select><button type="button" class="btn btn-gold verify-payment" data-booking-id="<?=htmlspecialchars((string)$b['id'])?>">Mark as Paid</button><div class="form-status verify-status" id="status-<?=htmlspecialchars((string)$b['id'])?>" aria-live="polite"></div><?php endif; ?></td>
 </tr>
 <?php endforeach; endif; ?>
 </tbody></table></div>
@@ -66,25 +67,27 @@ document.querySelectorAll('.verify-payment').forEach(button=>{
   const id=button.dataset.bookingId;
   const input=document.getElementById('ref-'+id);
   const status=document.getElementById('status-'+id);
-  const reference=input.value.trim();
-  if(!reference){status.textContent='Enter the Paystack transaction reference first.';status.className='form-status error';input.focus();return;}
+  const method=document.getElementById('method-'+id).value;
+  const note=document.getElementById('note-'+id).value.trim();
+  if(!method){status.textContent='Select the payment method first.';status.className='form-status error';return;}
   button.disabled=true;
-  button.textContent='Verifying...';
+  button.textContent='Saving...';
   status.textContent='';
   try{
    const csrf=await getCsrf();
-   const r=await fetch('../api/admin-verify-payment.php',{
+   const r=await fetch('../api/admin-mark-paid.php',{
     method:'POST',
     headers:{'Content-Type':'application/json'},
     credentials:'same-origin',
-    body:JSON.stringify({csrf,booking_id:Number(id),reference})
+    body:JSON.stringify({csrf,booking_id:Number(id),payment_method:method,payment_reference:reference,payment_note:note})
    });
    const d=await r.json();
    if(!r.ok||!d.success) throw new Error(d.message||'Payment verification failed.');
-   status.textContent='Payment verified successfully.';
+   status.textContent='Payment marked as verified successfully.';
    status.className='form-status success';
    const row=document.getElementById('booking-row-'+id);
-   row.querySelector('.payment-status').innerHTML='PAID<br><small>'+((d.channel||'').replace(/</g,'&lt;'))+'</small>';
+   row.querySelector('.payment-status').innerHTML='PAID';
+   row.querySelector('.payment-method').textContent=method;
    row.querySelector('.paid-at').textContent=new Date().toLocaleString();
    button.outerHTML='<span class="notice" style="display:inline-block;padding:8px 12px">Verified</span>';
    setTimeout(()=>location.reload(),900);
@@ -92,7 +95,7 @@ document.querySelectorAll('.verify-payment').forEach(button=>{
    status.textContent=err.message;
    status.className='form-status error';
    button.disabled=false;
-   button.textContent='Verify Payment';
+   button.textContent='Mark as Paid';
   }
  });
 });
