@@ -43,7 +43,7 @@
       if(!amount||amount<100){status.textContent="Please select a package or enter a valid custom amount.";status.className="form-status error";return}
       try{
         const csrf=await getCsrf();
-        const data={csrf,name:form.elements.Name.value.trim(),email:form.elements.Email.value.trim(),phone:form.elements.Phone.value.trim(),service:form.elements.Service.value,date:form.elements.Date.value,package:form.elements.Package.value,location:form.elements.Location.value.trim(),details:form.elements.Details.value.trim(),amount};
+        const data={csrf,name:form.elements.Name.value.trim(),email:form.elements.Email.value.trim(),phone:form.elements.Phone.value.trim(),service:form.elements.Service.value,date:form.elements.Date.value,package:form.elements.Package.value,location:form.elements.Location.value.trim(),details:form.elements.Details.value.trim(),amount,custom_amount:form.elements["Custom Amount"]?.value.trim()||""};
         const saved=await api("booking.php",data);
         logActivity("Booking saved",{BookingID:saved.booking_id,Email:data.email,Amount:"₦"+amount.toLocaleString("en-NG")});
         const message=[
