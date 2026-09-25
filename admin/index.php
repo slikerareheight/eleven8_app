@@ -2,7 +2,8 @@
 require_once __DIR__.'/../api/bootstrap.php';
 require_admin();
 header('Content-Type: text/html; charset=utf-8');
-$stmt=$pdo->query('SELECT id,name,email,phone,service,booking_date,package,amount,status,payment_reference,paid_at,created_at FROM bookings ORDER BY created_at DESC');
+
+$stmt=$pdo->query('SELECT id,name,email,phone,service,booking_date,package,amount,status,payment_reference,paid_at,payment_channel,created_at FROM bookings ORDER BY created_at DESC');
 $bookings=$stmt->fetchAll();
 $total=(float)$pdo->query("SELECT COALESCE(SUM(amount),0) FROM bookings WHERE status='paid'")->fetchColumn();
 $paid=(int)$pdo->query("SELECT COUNT(*) FROM bookings WHERE status='paid'")->fetchColumn();
@@ -31,6 +32,68 @@ $users=$pdo->query('SELECT id,first_name,last_name,email,phone,role,is_active,cr
 <td><?=htmlspecialchars($u['created_at'])?></td>
 </tr><?php endforeach; endif; ?>
 </tbody></table></div></div>
-<div style="overflow:auto"><table style="width:100%;border-collapse:collapse;min-width:1000px"><thead><tr><th>ID</th><th>Customer</th><th>Service</th><th>Date</th><th>Package</th><th>Amount</th><th>Status</th><th>Reference</th><th>Created</th></tr></thead><tbody>
-<?php foreach($bookings as $b): ?><tr><td><?=htmlspecialchars((string)$b['id'])?></td><td><?=htmlspecialchars($b['name'])?><br><small><?=htmlspecialchars($b['email'])?></small></td><td><?=htmlspecialchars($b['service'])?></td><td><?=htmlspecialchars($b['booking_date'])?></td><td><?=htmlspecialchars($b['package'])?></td><td>₦<?=number_format((float)$b['amount'],2)?></td><td><?=htmlspecialchars(strtoupper($b['status']))?></td><td><?=htmlspecialchars((string)($b['payment_reference']??''))?></td><td><?=htmlspecialchars($b['created_at'])?></td></tr><?php endforeach; ?></tbody></table></div>
-</div></main></body></html>
+
+<div class="eyebrow">BOOKINGS & PAYMENT VERIFICATION</div><h2>Booking Records</h2>
+<p class="muted">Enter the Paystack transaction reference supplied by the customer, then verify it against the booking amount. The booking is marked <strong>PAID</strong> only when Paystack confirms a successful NGN transaction for the exact amount.</p>
+<div style="overflow:auto"><table style="width:100%;border-collapse:collapse;min-width:1450px">
+<thead><tr><th>ID</th><th>Customer</th><th>Service</th><th>Date</th><th>Package</th><th>Amount</th><th>Status</th><th>Paystack Reference</th><th>Paid At</th><th>Action</th></tr></thead><tbody>
+<?php if(!$bookings): ?><tr><td colspan="10" style="padding:25px;text-align:center">No bookings have been created yet.</td></tr>
+<?php else: foreach($bookings as $b): ?>
+<tr id="booking-row-<?=htmlspecialchars((string)$b['id'])?>">
+<td><?=htmlspecialchars((string)$b['id'])?></td>
+<td><?=htmlspecialchars($b['name'])?><br><small><?=htmlspecialchars($b['email'])?><br><?=htmlspecialchars($b['phone'])?></small></td>
+<td><?=htmlspecialchars($b['service'])?></td>
+<td><?=htmlspecialchars($b['booking_date'])?></td>
+<td><?=htmlspecialchars($b['package'])?></td>
+<td>₦<?=number_format((float)$b['amount'],2)?></td>
+<td class="payment-status"><?=htmlspecialchars(strtoupper($b['status']))?><?php if(!empty($b['payment_channel'])): ?><br><small><?=htmlspecialchars($b['payment_channel'])?></small><?php endif; ?></td>
+<td><input class="admin-payment-ref" id="ref-<?=htmlspecialchars((string)$b['id'])?>" type="text" value="<?=htmlspecialchars((string)($b['payment_reference']??''))?>" placeholder="e.g. 1234567890"></td>
+<td class="paid-at"><?=htmlspecialchars((string)($b['paid_at']??''))?></td>
+<td><?php if($b['status']==='paid'): ?><span class="notice" style="display:inline-block;padding:8px 12px">Verified</span><?php else: ?><button type="button" class="btn btn-gold verify-payment" data-booking-id="<?=htmlspecialchars((string)$b['id'])?>">Verify Payment</button><div class="form-status verify-status" id="status-<?=htmlspecialchars((string)$b['id'])?>" aria-live="polite"></div><?php endif; ?></td>
+</tr>
+<?php endforeach; endif; ?>
+</tbody></table></div>
+</div></main>
+<script>
+async function getCsrf(){
+ const r=await fetch('../api/csrf.php',{credentials:'same-origin'});
+ const d=await r.json();
+ if(!r.ok||!d.csrf) throw new Error(d.message||'Could not obtain security token.');
+ return d.csrf;
+}
+document.querySelectorAll('.verify-payment').forEach(button=>{
+ button.addEventListener('click',async()=>{
+  const id=button.dataset.bookingId;
+  const input=document.getElementById('ref-'+id);
+  const status=document.getElementById('status-'+id);
+  const reference=input.value.trim();
+  if(!reference){status.textContent='Enter the Paystack transaction reference first.';status.className='form-status error';input.focus();return;}
+  button.disabled=true;
+  button.textContent='Verifying...';
+  status.textContent='';
+  try{
+   const csrf=await getCsrf();
+   const r=await fetch('../api/admin-verify-payment.php',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    credentials:'same-origin',
+    body:JSON.stringify({csrf,booking_id:Number(id),reference})
+   });
+   const d=await r.json();
+   if(!r.ok||!d.success) throw new Error(d.message||'Payment verification failed.');
+   status.textContent='Payment verified successfully.';
+   status.className='form-status success';
+   const row=document.getElementById('booking-row-'+id);
+   row.querySelector('.payment-status').innerHTML='PAID<br><small>'+((d.channel||'').replace(/</g,'&lt;'))+'</small>';
+   row.querySelector('.paid-at').textContent=new Date().toLocaleString();
+   button.outerHTML='<span class="notice" style="display:inline-block;padding:8px 12px">Verified</span>';
+   setTimeout(()=>location.reload(),900);
+  }catch(err){
+   status.textContent=err.message;
+   status.className='form-status error';
+   button.disabled=false;
+   button.textContent='Verify Payment';
+  }
+ });
+});
+</script></body></html>
