@@ -10,6 +10,7 @@ $date=trim((string)($data['date']??''));
 $package=trim((string)($data['package']??''));
 $location=trim((string)($data['location']??''));
 $details=trim((string)($data['details']??''));
+$customAmount=trim((string)($data['custom_amount']??''));
 
 $services=['Wedding Photography','Wedding Videography','Portrait Session','Corporate Coverage','Commercial Content','Creative Production'];
 $packages=['Silver'=>150000.00,'Gold'=>350000.00,'Platinum'=>700000.00,'Custom Quote'=>null];
@@ -20,9 +21,13 @@ if($name==='' || !filter_var($email,FILTER_VALIDATE_EMAIL) || $phone==='' || !in
 }
 
 $amount=$packages[$package];
+
 if($package==='Custom Quote') {
-    $amount=(float)($data['amount']??0);
-    if($amount<100) json_response(['success'=>false,'message'=>'Enter a valid confirmed custom booking amount.'],422);
+    // Use the dedicated custom amount field sent by the booking form.
+    $amount=(float)$customAmount;
+    if($amount<100) {
+        json_response(['success'=>false,'message'=>'Enter a valid confirmed custom booking amount.'],422);
+    }
 }
 
 $userId=!empty($_SESSION['user_id'])?(int)$_SESSION['user_id']:null;
