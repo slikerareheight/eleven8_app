@@ -20,7 +20,7 @@
     return data.csrf;
   }
 
-  function saveUsers(users){localStorage.setItem(USERS_KEY,JSON.stringify(users)}
+  function saveUsers(users){localStorage.setItem(USERS_KEY,JSON.stringify(users))}
   function safeFormData(form){const data={};new FormData(form).forEach((value,key)=>{if(/password|card|cvv|cvc|pin/i.test(key))return;data[key]=String(value)});return data}
   function logActivity(type,details={}){let entries=[];try{entries=JSON.parse(localStorage.getItem(LOG_KEY)||"[]")}catch(_){}entries.push({timestamp:new Date().toISOString(),type,page:location.pathname.split("/").pop()||"index.html",details});localStorage.setItem(LOG_KEY,JSON.stringify(entries.slice(-500)))}
   function downloadLog(){let entries=[];try{entries=JSON.parse(localStorage.getItem(LOG_KEY)||"[]")}catch(_){}const lines=["ELEVEN8 ACTIVITY NOTEPAD","=========================",""];entries.forEach((entry,i)=>{lines.push((i+1)+". "+entry.timestamp+" | "+entry.type);Object.entries(entry.details||{}).forEach(([key,value])=>lines.push("   "+key+": "+value));lines.push("")});const blob=new Blob([lines.join("\n")],{type:"text/plain;charset=utf-8"}),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download="eleven8_activity_log.txt";a.click();setTimeout(()=>URL.revokeObjectURL(url),500)}
