@@ -1,6 +1,23 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__ . '/api/bootstrap.php';
+
+if (empty($_SESSION['user_id'])) {
+    header('Location: login.php?redirect=booking.php');
+    exit;
+}
+
+$userId = (int)$_SESSION['user_id'];
+$stmt = $pdo->prepare('SELECT id, first_name, last_name, email, phone FROM users WHERE id=? AND is_active=1 LIMIT 1');
+$stmt->execute([$userId]);
+$loggedInUser = $stmt->fetch();
+
+if (!$loggedInUser) {
+    $_SESSION = [];
+    session_destroy();
+    header('Location: login.php?redirect=booking.php');
+    exit;
+}
 ?>
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -10,7 +27,7 @@ require_once __DIR__ . '/api/bootstrap.php';
 <header class="nav"><div class="container nav-inner">
 <a class="brand" href="index.html"><img src="images/logo.png" alt="ELEVEN8 logo"></a>
 <nav class="nav-links"><a href="index.html">Home</a><a href="services.html">Services</a><a href="portfolio.html">Portfolio</a><a href="about.html">About</a><a href="packages.html">Packages</a><a class="active" href="booking.php">Booking</a><a href="contact.html">Contact</a></nav>
-<div class="nav-actions"><a class="btn btn-outline" href="login.php">Login</a><a class="btn btn-gold" href="signup.php">Sign Up</a><button class="menu" aria-label="Open menu">☰</button></div>
+<div class="nav-actions"><span class="gold">Hi, <?=htmlspecialchars($loggedInUser['first_name'], ENT_QUOTES, 'UTF-8')?></span><a class="btn btn-outline" href="dashboard.php">Dashboard</a><button class="menu" aria-label="Open menu">☰</button></div>
 </div></header>
 <main>
 <section class="site-slider" aria-label="ELEVEN8 featured work"><div class="slider-track">
@@ -26,9 +43,9 @@ require_once __DIR__ . '/api/bootstrap.php';
 </div>
 <form class="form" id="bookingForm" data-whatsapp="2348120167383">
 <div class="form-grid">
-<div class="field"><label>Name</label><input name="Name" autocomplete="name" required></div>
-<div class="field"><label>Email</label><input type="email" name="Email" autocomplete="email" required></div>
-<div class="field"><label>Phone</label><input name="Phone" autocomplete="tel" required></div>
+<div class="field"><label>Name</label><input name="Name" autocomplete="name" value="<?=htmlspecialchars($loggedInUser['first_name'].' '.$loggedInUser['last_name'], ENT_QUOTES, 'UTF-8')?>" required></div>
+<div class="field"><label>Email</label><input type="email" name="Email" autocomplete="email" value="<?=htmlspecialchars($loggedInUser['email'], ENT_QUOTES, 'UTF-8')?>" required></div>
+<div class="field"><label>Phone</label><input name="Phone" autocomplete="tel" value="<?=htmlspecialchars($loggedInUser['phone'], ENT_QUOTES, 'UTF-8')?>" required></div>
 <div class="field"><label>Service</label><select name="Service" required><option value="">Select service</option><option>Wedding Photography</option><option>Wedding Videography</option><option>Portrait Session</option><option>Corporate Coverage</option><option>Commercial Content</option><option>Creative Production</option></select></div>
 <div class="field"><label>Preferred Date</label><input type="date" name="Date" required></div>
 <div class="field"><label>Package</label><select id="bookingPackage" name="Package" required><option value="">Select package</option><option value="Silver" data-amount="150000">Silver — ₦150,000</option><option value="Gold" data-amount="350000">Gold — ₦350,000</option><option value="Platinum" data-amount="700000">Platinum — ₦700,000</option><option value="Custom Quote" data-amount="0">Custom Quote</option></select></div>
