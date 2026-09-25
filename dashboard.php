@@ -1,83 +1,41 @@
 <?php
 require_once __DIR__.'/api/bootstrap.php';
-
-if(empty($_SESSION['user_id'])){
-    header('Location: login.html');
-    exit;
-}
-
+if(empty($_SESSION['user_id'])){header('Location: login.html');exit;}
 $userId=(int)$_SESSION['user_id'];
-$stmt=$pdo->prepare('SELECT id,first_name,last_name,email,phone,role,created_at FROM users WHERE id=? AND is_active=1 LIMIT 1');
-$stmt->execute([$userId]);
-$user=$stmt->fetch();
-
-if(!$user){
-    session_unset();
-    session_destroy();
-    header('Location: login.html');
-    exit;
-}
-
-$stmt=$pdo->prepare('SELECT id,service,booking_date,package,amount,status,created_at FROM bookings WHERE user_id=? ORDER BY created_at DESC');
-$stmt->execute([$userId]);
-$bookings=$stmt->fetchAll();
-
-$pending=0; $paid=0; $total=0.0;
-foreach($bookings as $booking){
-    if($booking['status']==='paid'){ $paid++; $total+=(float)$booking['amount']; }
-    else { $pending++; }
-}
+$stmt=$pdo->prepare('SELECT id,first_name,last_name,email,phone,role,created_at FROM users WHERE id=? AND is_active=1 LIMIT 1'); $stmt->execute([$userId]); $user=$stmt->fetch();
+if(!$user){session_unset();session_destroy();header('Location: login.html');exit;}
+$stmt=$pdo->prepare('SELECT id,service,booking_date,package,location,details,amount,status,payment_reference,paid_at,created_at FROM bookings WHERE user_id=? ORDER BY created_at DESC'); $stmt->execute([$userId]); $bookings=$stmt->fetchAll();
+$pending=$paid=0; $total=0.0; foreach($bookings as $b){if($b['status']==='paid'){$paid++;$total+=(float)$b['amount'];}else{$pending++;}}
+function h($v){return htmlspecialchars((string)$v,ENT_QUOTES,'UTF-8');}
 ?>
-<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>My Dashboard | ELEVEN8 Cinematic</title>
-<link rel="stylesheet" href="css/styles.css">
-</head>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Client Dashboard | ELEVEN8</title><link rel="stylesheet" href="css/styles.css">
+<style>
+.dashboard-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;margin-bottom:35px}.dash-card{padding:24px;border:1px solid rgba(255,255,255,.1);border-radius:12px;background:rgba(255,255,255,.03)}.dash-card strong{font-size:28px}.portal-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px}.portal-card{padding:28px;border:1px solid rgba(255,255,255,.1);border-radius:14px;background:rgba(255,255,255,.025)}.portal-card h3{margin-top:0}.status-badge{display:inline-block;padding:5px 10px;border-radius:20px;font-size:12px;font-weight:700}.status-paid{background:#1d6b43;color:#fff}.status-pending{background:#80651b;color:#fff}.status-cancelled{background:#7b3030;color:#fff}.profile-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}.dashboard-table th,.dashboard-table td{padding:13px 10px;border-bottom:1px solid rgba(255,255,255,.08);text-align:left}.modal{position:fixed;inset:0;background:rgba(0,0,0,.78);display:none;align-items:center;justify-content:center;padding:20px;z-index:1000}.modal.open{display:flex}.modal-box{width:min(620px,100%);max-height:90vh;overflow:auto;background:#171717;padding:28px;border-radius:14px}.modal-close{float:right}.dashboard-form .field{margin-bottom:15px}.dashboard-form input{width:100%;box-sizing:border-box}
+@media(max-width:900px){.dashboard-grid{grid-template-columns:repeat(2,1fr)}.portal-grid{grid-template-columns:1fr}}@media(max-width:600px){.dashboard-grid{grid-template-columns:1fr}}
+</style></head>
 <body>
-<header class="nav"><div class="container nav-inner">
-<a class="brand" href="index.html"><img src="images/logo.png" alt="ELEVEN8 logo"></a>
-<nav class="nav-links"><a href="index.html">Home</a><a href="services.html">Services</a><a href="portfolio.html">Portfolio</a><a href="booking.html">Booking</a><a class="active" href="dashboard.php">My Dashboard</a></nav>
-<div class="nav-actions"><a class="btn btn-gold" href="booking.html">New Booking</a><a class="btn btn-outline" href="admin/logout.php">Logout</a></div>
-</div></header>
-
-<main>
-<section class="page-hero"><div class="container"><div class="eyebrow">CLIENT DASHBOARD</div>
-<h1>Welcome, <span class="gold"><?=htmlspecialchars($user['first_name'])?></span>.</h1>
-<p>Manage your ELEVEN8 account and view your booking history.</p></div></section>
-
+<header class="nav"><div class="container nav-inner"><a class="brand" href="index.html"><img src="images/logo.png" alt="ELEVEN8"></a><nav class="nav-links"><a href="index.html">Home</a><a href="services.html">Services</a><a href="portfolio.html">Portfolio</a><a href="booking.html">Booking</a><a class="active" href="dashboard.php">Dashboard</a></nav><div class="nav-actions"><a class="btn btn-gold" href="booking.html">New Booking</a><button class="btn btn-outline" id="logoutBtn" type="button">Logout</button></div></div></header>
+<main><section class="page-hero"><div class="container"><div class="eyebrow">CLIENT PORTAL</div><h1>Welcome, <span class="gold"><?=h($user['first_name'])?></span>.</h1><p>Manage your profile, bookings and payment status from one place.</p></div></section>
 <section class="section"><div class="container">
-<div class="form-grid" style="margin-bottom:30px">
-<div class="notice"><strong><?=count($bookings)?></strong><br>Total bookings</div>
-<div class="notice"><strong><?=number_format($pending)?></strong><br>Pending / unpaid</div>
-<div class="notice"><strong><?=number_format($paid)?></strong><br>Paid bookings</div>
-<div class="notice"><strong>₦<?=number_format($total,2)?></strong><br>Total paid</div>
+<div class="dashboard-grid"><div class="dash-card"><span>Total Bookings</span><br><strong><?=count($bookings)?></strong></div><div class="dash-card"><span>Pending / Unpaid</span><br><strong><?=$pending?></strong></div><div class="dash-card"><span>Paid Bookings</span><br><strong><?=$paid?></strong></div><div class="dash-card"><span>Total Paid</span><br><strong>₦<?=number_format($total,2)?></strong></div></div>
+<div class="portal-grid">
+<div class="portal-card"><div class="eyebrow">MY PROFILE</div><h3><?=h($user['first_name'].' '.$user['last_name'])?></h3><p><?=h($user['email'])?><br><?=h($user['phone'])?></p><p>Account: <strong><?=h(ucfirst($user['role']))?></strong><br>Member since: <?=h($user['created_at'])?></p><div class="profile-actions"><button class="btn btn-gold" type="button" id="editProfileBtn">Edit Profile</button><button class="btn btn-outline" type="button" id="changePasswordBtn">Change Password</button></div></div>
+<div class="portal-card"><div class="eyebrow">QUICK ACTIONS</div><h3>Need another service?</h3><p style="color:var(--muted)">Create a booking and send the payment request directly to ELEVEN8 on WhatsApp.</p><a class="btn btn-gold" href="booking.html">Make a New Booking →</a></div>
 </div>
-
-<div class="split">
-<div><div class="eyebrow">ACCOUNT INFORMATION</div><h2><?=htmlspecialchars($user['first_name'].' '.$user['last_name'])?></h2>
-<p><strong>Email:</strong> <?=htmlspecialchars($user['email'])?></p>
-<p><strong>Phone:</strong> <?=htmlspecialchars($user['phone'])?></p>
-<p><strong>Account:</strong> <?=htmlspecialchars(ucfirst($user['role']))?></p>
-<p><strong>Member since:</strong> <?=htmlspecialchars($user['created_at'])?></p></div>
-<div><div class="eyebrow">QUICK ACTION</div><h2>Ready for your next project?</h2>
-<p style="color:var(--muted)">Create a new booking and send your payment request directly to ELEVEN8 on WhatsApp.</p>
-<a class="btn btn-gold" href="booking.html">Make a New Booking →</a></div>
-</div>
-
-<div style="margin-top:50px"><div class="eyebrow">BOOKING HISTORY</div><h2>Your bookings</h2>
-<div style="overflow:auto"><table style="width:100%;border-collapse:collapse;min-width:900px">
-<thead><tr><th>ID</th><th>Service</th><th>Date</th><th>Package</th><th>Amount</th><th>Status</th><th>Created</th></tr></thead>
-<tbody>
-<?php if(!$bookings): ?>
-<tr><td colspan="7" style="padding:25px;text-align:center;color:var(--muted)">No bookings yet. <a class="gold" href="booking.html">Create your first booking</a>.</td></tr>
-<?php else: foreach($bookings as $b): ?>
-<tr><td>#<?=htmlspecialchars((string)$b['id'])?></td><td><?=htmlspecialchars($b['service'])?></td><td><?=htmlspecialchars($b['booking_date'])?></td><td><?=htmlspecialchars($b['package'])?></td><td>₦<?=number_format((float)$b['amount'],2)?></td><td><?=htmlspecialchars(strtoupper($b['status']))?></td><td><?=htmlspecialchars($b['created_at'])?></td></tr>
-<?php endforeach; endif; ?>
+<div style="margin-top:50px"><div class="eyebrow">BOOKING HISTORY</div><h2>Your bookings</h2><div style="overflow:auto"><table class="dashboard-table" style="width:100%;border-collapse:collapse;min-width:1000px"><thead><tr><th>ID</th><th>Service</th><th>Date</th><th>Package</th><th>Amount</th><th>Status</th><th>Payment</th><th>Created</th></tr></thead><tbody>
+<?php if(!$bookings): ?><tr><td colspan="8" style="padding:25px;text-align:center;color:var(--muted)">No bookings yet. <a class="gold" href="booking.html">Create your first booking</a>.</td></tr>
+<?php else: foreach($bookings as $b): $status=strtolower($b['status']); ?><tr><td>#<?=h($b['id'])?></td><td><?=h($b['service'])?></td><td><?=h($b['booking_date'])?></td><td><?=h($b['package'])?></td><td>₦<?=number_format((float)$b['amount'],2)?></td><td><span class="status-badge status-<?=in_array($status,['paid','cancelled','pending'])?$status:'pending'?>"><?=h(strtoupper($status))?></span></td><td><?=h($b['paid_at']?:($b['payment_reference']?'Reference issued':'Awaiting payment'))?></td><td><?=h($b['created_at'])?></td></tr><?php endforeach; endif; ?>
 </tbody></table></div></div>
-</div></section>
-</main>
-<footer class="footer"><div class="container"><div class="copyright">© 2026 ELEVEN8 Cinematic. All rights reserved.</div></div></footer>
-</body></html>
+</div></section></main>
+<div class="modal" id="profileModal"><div class="modal-box"><button class="btn btn-outline modal-close" data-close="profileModal">Close</button><div class="eyebrow">EDIT PROFILE</div><h2>Account details</h2><form class="dashboard-form" id="profileForm"><div class="field"><label>First Name</label><input name="first_name" value="<?=h($user['first_name'])?>" required></div><div class="field"><label>Last Name</label><input name="last_name" value="<?=h($user['last_name'])?>" required></div><div class="field"><label>Email</label><input type="email" name="email" value="<?=h($user['email'])?>" required></div><div class="field"><label>Phone</label><input name="phone" value="<?=h($user['phone'])?>" required></div><button class="btn btn-gold" type="submit">Save Changes</button><p id="profileStatus" class="form-status"></p></form></div></div>
+<div class="modal" id="passwordModal"><div class="modal-box"><button class="btn btn-outline modal-close" data-close="passwordModal">Close</button><div class="eyebrow">SECURITY</div><h2>Change password</h2><form class="dashboard-form" id="passwordForm"><div class="field"><label>Current Password</label><input type="password" name="current_password" required></div><div class="field"><label>New Password</label><input type="password" name="new_password" minlength="8" required></div><div class="field"><label>Confirm New Password</label><input type="password" name="confirm_password" minlength="8" required></div><button class="btn btn-gold" type="submit">Update Password</button><p id="passwordStatus" class="form-status"></p></form></div></div>
+<script>
+const csrfPromise=fetch('api/csrf.php',{credentials:'same-origin'}).then(r=>r.json()).then(x=>x.csrf);
+async function portalPost(path,body){body.csrf=await csrfPromise;const r=await fetch('api/'+path,{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify(body)});const d=await r.json();if(!r.ok)throw new Error(d.message||'Request failed.');return d;}
+const open=(id)=>document.getElementById(id).classList.add('open');const close=(id)=>document.getElementById(id).classList.remove('open');
+document.getElementById('editProfileBtn').onclick=()=>open('profileModal');document.getElementById('changePasswordBtn').onclick=()=>open('passwordModal');
+document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>close(b.dataset.close));
+document.getElementById('logoutBtn').onclick=async()=>{try{await portalPost('logout.php',{});}finally{location.href='login.html';}};
+document.getElementById('profileForm').onsubmit=async e=>{e.preventDefault();const s=document.getElementById('profileStatus');try{const f=e.target;s.textContent=(await portalPost('profile.php',{first_name:f.first_name.value.trim(),last_name:f.last_name.value.trim(),email:f.email.value.trim(),phone:f.phone.value.trim()})).message;s.className='form-status success';setTimeout(()=>location.reload(),700)}catch(err){s.textContent=err.message;s.className='form-status error'}};
+document.getElementById('passwordForm').onsubmit=async e=>{e.preventDefault();const s=document.getElementById('passwordStatus'),f=e.target;if(f.new_password.value!==f.confirm_password.value){s.textContent='New passwords do not match.';s.className='form-status error';return}try{s.textContent=(await portalPost('change-password.php',{current_password:f.current_password.value,new_password:f.new_password.value})).message;s.className='form-status success';f.reset()}catch(err){s.textContent=err.message;s.className='form-status error'}};
+</script></body></html>
